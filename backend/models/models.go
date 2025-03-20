@@ -1,7 +1,5 @@
 package models
 
-import "encoding/json"
-
 // CodeAnalysisRequest represents a request to analyze code
 type CodeAnalysisRequest struct {
 	Code         string `json:"code" binding:"required"`
@@ -14,6 +12,21 @@ type DocumentationRequest struct {
 	Code        string `json:"code" binding:"required"`
 	Language    string `json:"language" default:"javascript"`
 	UseExamples bool   `json:"useExamples" default:"false"`
+	Inline      bool   `json:"inline" default:"false"`
+}
+
+// ReadmeGeneratorRequest represents a request to generate a README file
+type ReadmeGeneratorRequest struct {
+	RepoURL     string `json:"repoUrl"`
+	FolderPath  string `json:"folderPath"`
+	ProjectName string `json:"projectName"`
+	Description string `json:"description"`
+}
+
+// ProjectVisualizationRequest represents a request to visualize a project structure
+type ProjectVisualizationRequest struct {
+	RepoURL    string `json:"repoUrl"`
+	FolderPath string `json:"folderPath"`
 }
 
 // ImplementationCompareRequest represents a request to compare implementations
@@ -70,6 +83,18 @@ type AnalysisResponse struct {
 type DocumentationResponse struct {
 	Documentation string `json:"documentation"`
 	Language      string `json:"language"`
+	Inline        bool   `json:"inline"`
+}
+
+// ReadmeResponse represents a generated README file
+type ReadmeResponse struct {
+	Content string `json:"content"`
+}
+
+// ProjectVisualizationResponse represents a project visualization diagram
+type ProjectVisualizationResponse struct {
+	DiagramCode string `json:"diagramCode"`
+	Type        string `json:"type"`
 }
 
 // ComparisonResponse represents a comparison result from the LLM
@@ -83,4 +108,12 @@ type ApiResponse struct {
 	Success bool        `json:"success"`
 	Data    interface{} `json:"data,omitempty"`
 	Error   string      `json:"error,omitempty"`
+}
+
+// RepoStructure represents a repository structure for scanning
+type RepoStructure struct {
+	Files       []string            `json:"files"`
+	Directories []string            `json:"directories"`
+	FileSummary map[string]string   `json:"fileSummary"`
+	Stats       map[string]int      `json:"stats"`
 }

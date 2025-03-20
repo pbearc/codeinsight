@@ -4,32 +4,39 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"your-username/codeinsight/routes"
+	"github.com/pbearc/codeinsight/routes"
 )
 
 func main() {
-	// Load environment variables
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Warning: .env file not found")
+	// Load environment variables from .env file if it exists
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: .env file not found or error loading it. Using environment variables.")
 	}
-
-	// Initialize router
-	r := gin.Default()
-
+	
+	// Set default port if not specified
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "5000"
+	}
+	
+	// Create a new Gin router
+	router := gin.Default()
+	
 	// Configure CORS
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
-	r.Use(cors.New(config))
-
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
+	
 	// Global error handler middleware
-	r.Use(func(c *gin.Context) {
+	router.Use(func(c *gin.Context) {
 		c.Next()
 
 		// Handle any panics
@@ -42,36 +49,23 @@ func main() {
 		}
 	})
 
-	// Redirect root to Swagger docs
-	r.GET("/", func(c *gin.Context) {
-		c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
-	})
-
+	// API routes group
+	api := router.Group("/api")
+	
+	// Register routes
+	routes.RegisterAnalysisRoutes(api)
+	routes.RegisterGitHubRoutes(api.Group("/github"))
+	routes.RegisterImplementationRoutes(api.Group("/implementations"))
+	routes.RegisterRepoRoutes(api.Group("/repo"))
+	
 	// Health check endpoint
-	r.GET("/api/health", func(c *gin.Context) {
+	router.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
-
-	// API routes
-	api := r.Group("/api")
-	{
-		// Analysis routes
-		routes.RegisterAnalysisRoutes(api)
-
-		// GitHub routes
-		github := api.Group("/github")
-		routes.RegisterGitHubRoutes(github)
-	}
-
-	// Get port from environment variable
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "5000"
-	}
-
+	
 	// Start server
-	log.Printf("Server running on port %s", port)
-	if err := r.Run(":" + port); err != nil {
+	log.Printf("Server starting on port %s\n", port)
+	if err := router.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

@@ -79,8 +79,8 @@ func RegisterAnalysisRoutes(router *gin.RouterGroup) {
 			request.Language = "javascript"
 		}
 
-		// Generate documentation
-		result, err := llmService.GenerateDocumentation(request.Code, request.Language)
+		// Generate documentation with inline option
+		result, err := llmService.GenerateDocumentation(request.Code, request.Language, request.Inline)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, models.ApiResponse{
 				Success: false,
@@ -95,8 +95,8 @@ func RegisterAnalysisRoutes(router *gin.RouterGroup) {
 		})
 	})
 
-	// Compare implementations endpoint
-	router.POST("/implementations/compare", func(c *gin.Context) {
+	// Compare implementations with LLM endpoint
+	router.POST("/llm-compare", func(c *gin.Context) {
 		var request models.ImplementationCompareRequest
 		if err := c.ShouldBindJSON(&request); err != nil {
 			c.JSON(http.StatusBadRequest, models.ApiResponse{
@@ -114,7 +114,7 @@ func RegisterAnalysisRoutes(router *gin.RouterGroup) {
 			return
 		}
 
-		// Compare implementations
+		// Compare implementations using LLM
 		result, err := llmService.CompareImplementations(request.Implementations)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, models.ApiResponse{

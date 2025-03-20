@@ -1,4 +1,3 @@
-// frontend/src/pages/Home.js
 import React from "react";
 import { Container, Row, Col, Button, Card } from "react-bootstrap";
 import { Link } from "react-router-dom";
@@ -78,7 +77,7 @@ function Home() {
                 <h3 className="h5 mb-3">Documentation Generator</h3>
                 <p className="card-text mb-3">
                   Transform complex code into clear, concise documentation with
-                  real-world examples.
+                  inline comments or documentation files.
                 </p>
                 <Button
                   as={Link}
@@ -103,6 +102,49 @@ function Home() {
                 <Button
                   as={Link}
                   to="/implementation-finder"
+                  variant="outline-primary"
+                  size="sm"
+                >
+                  Try it
+                </Button>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* New Row for Additional Features */}
+        <Row className="g-4 mt-2">
+          <Col md={6} lg={6}>
+            <Card className="h-100 shadow-sm">
+              <Card.Body>
+                <h3 className="h5 mb-3">README Generator</h3>
+                <p className="card-text mb-3">
+                  Automatically generate professional README.md files for your
+                  projects by analyzing your repository structure and code.
+                </p>
+                <Button
+                  as={Link}
+                  to="/readme-generator"
+                  variant="outline-primary"
+                  size="sm"
+                >
+                  Try it
+                </Button>
+              </Card.Body>
+            </Card>
+          </Col>
+
+          <Col md={6} lg={6}>
+            <Card className="h-100 shadow-sm">
+              <Card.Body>
+                <h3 className="h5 mb-3">Project Visualizer</h3>
+                <p className="card-text mb-3">
+                  Create visual diagrams of your project's architecture and
+                  structure to better understand and document your codebase.
+                </p>
+                <Button
+                  as={Link}
+                  to="/project-visualizer"
                   variant="outline-primary"
                   size="sm"
                 >

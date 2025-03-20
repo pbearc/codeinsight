@@ -1,4 +1,3 @@
-// frontend/src/App.js
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -13,6 +12,8 @@ import CodeAnalyzer from "./pages/CodeAnalyzer";
 import LibraryExplorer from "./pages/LibraryExplorer";
 import DocumentationGenerator from "./pages/DocumentationGenerator";
 import ImplementationFinder from "./pages/ImplementationFinder";
+import ReadmeGenerator from "./pages/ReadmeGenerator";
+import ProjectVisualizer from "./pages/ProjectVisualizer";
 
 function App() {
   return (
@@ -32,6 +33,8 @@ function App() {
               path="/implementation-finder"
               element={<ImplementationFinder />}
             />
+            <Route path="/readme-generator" element={<ReadmeGenerator />} />
+            <Route path="/project-visualizer" element={<ProjectVisualizer />} />
           </Routes>
         </main>
         <Footer />

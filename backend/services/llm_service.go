@@ -14,8 +14,9 @@ import (
 
 // LLMService provides methods for interacting with the LLM
 type LLMService struct {
-	apiKey  string
-	apiURL  string
+	apiKey   string
+	apiURL   string
+	mockMode bool
 }
 
 // Prompt templates for different analysis tasks
@@ -37,7 +38,7 @@ Suggestions for improvement
 Your analysis should be detailed but concise, focusing on the most important aspects.
 `,
 	"documentation": `
-Generate clear documentation for the following code written in {language}:
+Generate clear documentation for the following code written in {language} as a Markdown document:
 {code}
 
 Include the following sections:
@@ -48,7 +49,27 @@ Usage examples
 Key components and their interactions
 Dependencies and requirements
 
-The documentation should be in markdown format and suitable for developers who may not be familiar with this code.
+The documentation should be suitable for developers who may not be familiar with this code.
+`,
+	"inline_documentation": `
+Generate inline documentation comments for the following {language} code. 
+Add detailed comments before functions, classes, and complex code blocks. 
+For each function or method, document:
+- Purpose
+- Parameters
+- Return values
+- Notable behavior or edge cases
+
+Use the appropriate comment style for {language}:
+- For JavaScript/TypeScript/Java: Use /** ... */ for functions/methods and // for inline comments
+- For Python: Use """ ... """ docstrings for functions/methods and # for inline comments
+- For Go: Use // comments following Go's documentation conventions
+- For other languages: Follow standard conventions
+
+Here's the code:
+{code}
+
+Return the complete code with your added documentation comments.
 `,
 	"explain": `
 Explain the following code written in {language} in simple terms:
@@ -77,19 +98,80 @@ Suggest any alternative patterns that could also work
 
 Be specific and reference the actual code implementation.
 `,
+	"readme_generator": `
+Generate a comprehensive README.md file for the following repository. Here's the repository structure and file summaries:
+
+{repo_structure}
+
+Based on this information:
+
+1. Create a complete README.md that includes:
+   - Project title and description
+   - Installation instructions
+   - Usage examples
+   - Features overview
+   - API documentation (if applicable)
+   - Contributing guidelines
+   - License information
+
+2. The README should be professional and well-structured with proper Markdown formatting.
+3. Include badges if applicable (e.g., build status, license).
+4. If you see code examples in the file summaries, include them in the usage section.
+
+Return only the README.md content in proper Markdown format.
+`,
+	"project_visualization": `
+Based on the following repository structure:
+
+{repo_structure}
+
+Generate a hierarchical Mermaid flowchart diagram (TD direction - top down) that visualizes the complete folder structure. Requirements:
+
+1. Represent the repository as a hierarchical tree structure with proper parent-child relationships
+2. Show ALL directories and their subdirectories
+3. Include files within each directory
+4. Use different styles for files vs. directories
+5. Use the graph TD layout (top-down diagram)
+
+IMPORTANT: 
+- Do NOT include markdown code block syntax (three backtick). Return ONLY the raw Mermaid diagram code.
+- Make sure to represent the exact hierarchical structure with proper nesting of subdirectories.
+- Use descriptive node IDs to avoid collisions when directories or files have the same name.
+- Include ALL directories and their relationships.
+`,
 }
 
 // NewLLMService creates a new LLM service instance
 func NewLLMService() *LLMService {
 	apiKey := os.Getenv("GEMINI_API_KEY")
+	mockMode := apiKey == "" || os.Getenv("USE_MOCK_LLM") == "true"
+	
+	if mockMode {
+		fmt.Println("WARNING: LLM service running in mock mode. Responses will be simulated.")
+	}
+	
 	return &LLMService{
-		apiKey: apiKey,
-		apiURL: "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+		apiKey:   apiKey,
+		apiURL:   "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
+		mockMode: mockMode,
 	}
 }
 
 // CallGeminiLLM calls the Gemini API with the given prompt
 func (s *LLMService) CallGeminiLLM(prompt string) (string, error) {
+	// Check if we're in mock mode
+	if s.mockMode {
+		return s.getMockResponse(prompt), nil
+	}
+	
+	// Check if API key is available
+	if s.apiKey == "" {
+		return "", fmt.Errorf("Gemini API key is not configured")
+	}
+
+	// Log request (without the full prompt for privacy)
+	fmt.Printf("Making request to Gemini API (prompt length: %d)\n", len(prompt))
+
 	// Prepare request payload
 	payload := map[string]interface{}{
 		"contents": []map[string]interface{}{
@@ -103,7 +185,7 @@ func (s *LLMService) CallGeminiLLM(prompt string) (string, error) {
 		},
 		"generationConfig": map[string]interface{}{
 			"temperature":     0.7,
-			"maxOutputTokens": 1000,
+			"maxOutputTokens": 8000, // Increased for longer responses
 		},
 	}
 
@@ -121,25 +203,28 @@ func (s *LLMService) CallGeminiLLM(prompt string) (string, error) {
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send request
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 60 * 1000 * 1000 * 1000, // 60 second timeout
+	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Gemini API request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Read response body
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("Failed to read API response: %w", err)
+	}
+
 	// Check status code
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := ioutil.ReadAll(resp.Body)
-		return "", fmt.Errorf("Gemini API error: %s", body)
+		fmt.Printf("API Error Response: %s\n", string(body))
+		return "", fmt.Errorf("Gemini API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	// Parse response
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
 	var response struct {
 		Candidates []struct {
 			Content struct {
@@ -150,14 +235,31 @@ func (s *LLMService) CallGeminiLLM(prompt string) (string, error) {
 		} `json:"candidates"`
 	}
 	if err := json.Unmarshal(body, &response); err != nil {
-		return "", err
+		return "", fmt.Errorf("Failed to parse API response: %w (body: %s)", err, string(body))
 	}
 
 	if len(response.Candidates) == 0 || len(response.Candidates[0].Content.Parts) == 0 {
-		return "", fmt.Errorf("no response from Gemini API")
+		return "", fmt.Errorf("No response content from Gemini API")
 	}
 
 	return response.Candidates[0].Content.Parts[0].Text, nil
+}
+
+// getMockResponse generates mock responses for testing without an API key
+func (s *LLMService) getMockResponse(prompt string) string {
+	// Determine what kind of response to generate based on the prompt
+	if strings.Contains(prompt, "inline documentation") {
+		return "/* MOCK RESPONSE: This is a mock inline documentation response. */\n\n" +
+			"/**\n * A mock documented function\n * @param {string} input - The input value\n * @returns {string} The processed result\n */\nfunction mockFunction(input) {\n  // Process the input\n  return input + ' processed';\n}"
+	} else if strings.Contains(prompt, "generate a comprehensive README") {
+		return "# Mock Project\n\n## Description\nThis is a mock README generated for testing purposes.\n\n## Installation\n```\nnpm install mock-project\n```\n\n## Usage\n```javascript\nconst mock = require('mock-project');\nmock.doSomething();\n```"
+	} else if strings.Contains(prompt, "mermaid diagram") {
+		return "graph TD\n  A[Main Module] --> B[Component 1]\n  A --> C[Component 2]\n  B --> D[Utility 1]\n  C --> E[Utility 2]"
+	} else if strings.Contains(prompt, "documentation") {
+		return "# Mock Documentation\n\n## Overview\nThis is a mock documentation response for testing.\n\n## Functions\n- `function1`: Does something interesting\n- `function2`: Does something else"
+	} else {
+		return "This is a mock response from the LLM service. You're seeing this because either no API key is configured or mock mode is enabled. In a real scenario, this would be a detailed response based on your prompt."
+	}
 }
 
 // FormatPrompt formats a prompt using the template and parameters
@@ -169,7 +271,6 @@ func (s *LLMService) FormatPrompt(template string, params map[string]string) str
 	return prompt
 }
 
-// AnalyzeCode analyzes code using the Gemini LLM
 // AnalyzeCode analyzes code using the Gemini LLM
 func (s *LLMService) AnalyzeCode(code, language, analysisType string) (*models.AnalysisResponse, error) {
 	// Get the appropriate prompt template
@@ -198,9 +299,15 @@ func (s *LLMService) AnalyzeCode(code, language, analysisType string) (*models.A
 }
 
 // GenerateDocumentation generates documentation for code
-func (s *LLMService) GenerateDocumentation(code, language string) (*models.DocumentationResponse, error) {
-	// Format the prompt using the documentation template
-	prompt := s.FormatPrompt(promptTemplates["documentation"], map[string]string{
+func (s *LLMService) GenerateDocumentation(code, language string, inline bool) (*models.DocumentationResponse, error) {
+	// Choose template based on whether inline documentation is requested
+	templateKey := "documentation"
+	if inline {
+		templateKey = "inline_documentation"
+	}
+
+	// Format the prompt using the selected template
+	prompt := s.FormatPrompt(promptTemplates[templateKey], map[string]string{
 		"code":     code,
 		"language": language,
 	})
@@ -214,6 +321,7 @@ func (s *LLMService) GenerateDocumentation(code, language string) (*models.Docum
 	return &models.DocumentationResponse{
 		Documentation: response,
 		Language:      language,
+		Inline:        inline,
 	}, nil
 }
 
@@ -269,6 +377,46 @@ Make sure to add a "Real-world Examples" section and refer to specific patterns 
 		fmt.Printf("Documentation Enhancement Error: %v\n", err)
 		// Return original documentation if enhancement fails
 		return documentation, nil
+	}
+
+	return response, nil
+}
+
+// GenerateReadme generates a README.md file from repository information
+func (s *LLMService) GenerateReadme(repoStructure string) (string, error) {
+	// Format the prompt using the readme generator template
+	prompt := s.FormatPrompt(promptTemplates["readme_generator"], map[string]string{
+		"repo_structure": repoStructure,
+	})
+
+	// Call the LLM
+	response, err := s.CallGeminiLLM(prompt)
+	if err != nil {
+		return "", fmt.Errorf("README Generation Error: %v", err)
+	}
+
+	return response, nil
+}
+
+// GenerateProjectVisualization generates a Mermaid diagram of project structure
+func (s *LLMService) GenerateProjectVisualization(repoStructure string) (string, error) {
+	// Format the prompt using the project visualization template
+	prompt := s.FormatPrompt(promptTemplates["project_visualization"], map[string]string{
+		"repo_structure": repoStructure,
+	})
+
+	// Call the LLM
+	response, err := s.CallGeminiLLM(prompt)
+	if err != nil {
+		return "", fmt.Errorf("Project Visualization Error: %v", err)
+	}
+
+	// Ensure the response is a valid Mermaid diagram
+	if !strings.Contains(response, "graph ") && 
+	   !strings.Contains(response, "flowchart ") && 
+	   !strings.Contains(response, "classDiagram") && 
+	   !strings.Contains(response, "sequenceDiagram") {
+		return "graph TD\n  A[Error] --> B[Invalid diagram generated]\n  B --> C[Please try again]", nil
 	}
 
 	return response, nil

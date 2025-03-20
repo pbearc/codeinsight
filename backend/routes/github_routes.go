@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -12,6 +13,13 @@ import (
 func RegisterGitHubRoutes(router *gin.RouterGroup) {
 	// Initialize the GitHub service
 	githubService := services.NewGitHubService()
+	
+	// Add request logging middleware
+	router.Use(func(c *gin.Context) {
+		fmt.Printf("[API Request] %s %s\n", c.Request.Method, c.Request.URL.Path)
+		c.Next()
+		fmt.Printf("[API Response] Status: %d\n", c.Writer.Status())
+	})
 
 	// Search code endpoint
 	router.GET("/search", func(c *gin.Context) {
@@ -118,18 +126,41 @@ func RegisterGitHubRoutes(router *gin.RouterGroup) {
 		}
 
 		language := c.Query("language")
-		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "3"))
+		limit, err := strconv.Atoi(c.DefaultQuery("limit", "3"))
+		if err != nil || limit < 1 {
+			limit = 3
+		} else if limit > 10 {
+			limit = 10 // Set a reasonable maximum
+		}
 
-		// Find implementations
-		implementations, err := githubService.FindImplementations(functionName, language, limit)
-		if err != nil {
+		// Use GitHub service with panic recovery
+		var implementations []map[string]interface{}
+		var implErr error
+		
+		func() {
+			// Recover from any panics
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Recovered from panic: %v\n", r)
+					implErr = fmt.Errorf("internal server error")
+				}
+			}()
+			
+			// Execute the GitHub service call
+			implementations, implErr = githubService.FindImplementations(functionName, language, limit)
+		}()
+
+		// Handle any errors
+		if implErr != nil {
+			fmt.Printf("Error finding implementations: %v\n", implErr)
 			c.JSON(http.StatusInternalServerError, models.ApiResponse{
 				Success: false,
-				Error:   err.Error(),
+				Error:   implErr.Error(),
 			})
 			return
 		}
 
+		// Success response
 		c.JSON(http.StatusOK, models.ApiResponse{
 			Success: true,
 			Data:    implementations,
