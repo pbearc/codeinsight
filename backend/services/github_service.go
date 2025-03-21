@@ -529,3 +529,270 @@ func (s *GitHubService) buildQueryForFunction(functionName, language string) str
     
     return query
 }
+
+// GetUserRepositories fetches all repositories for a GitHub user
+func (s *GitHubService) GetUserRepositories(username string) ([]map[string]interface{}, error) {
+	// Build params for the request
+	params := map[string]string{
+		"per_page": "100",
+		"sort":     "updated",
+	}
+	
+	// Fetch repositories from GitHub API
+	responseBody, err := s.makeRequest("GET", fmt.Sprintf("/users/%s/repos", username), params)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse the response
+	var repositories []map[string]interface{}
+	if err := json.Unmarshal(responseBody, &repositories); err != nil {
+		return nil, fmt.Errorf("failed to parse repository data: %w", err)
+	}
+	
+	// Enhanced repositories with additional data
+	enhancedRepos := make([]map[string]interface{}, 0, len(repositories))
+	
+	for _, repo := range repositories {
+		// Skip forks if they represent more than 70% of repos
+		isFork, ok := repo["fork"].(bool)
+		if ok && isFork && countForks(repositories) > len(repositories)*7/10 {
+			continue
+		}
+		
+		// Fetch languages for this repository
+		repoName, ok := repo["name"].(string)
+		if !ok {
+			continue
+		}
+		
+		languages, err := s.GetRepositoryLanguages(username, repoName)
+		if err == nil {
+			repo["languages"] = languages
+		}
+		
+		// Fetch commit stats for this repository
+		commitStats, err := s.GetRepositoryCommitStats(username, repoName)
+		if err == nil {
+			repo["commit_stats"] = commitStats
+		}
+		
+		enhancedRepos = append(enhancedRepos, repo)
+	}
+	
+	return enhancedRepos, nil
+}
+
+// GetUserContributions fetches contribution data for a GitHub user
+func (s *GitHubService) GetUserContributions(username string) (map[string]interface{}, error) {
+	// Get user events
+	params := map[string]string{
+		"per_page": "100",
+	}
+	
+	// Fetch events from GitHub API
+	responseBody, err := s.makeRequest("GET", fmt.Sprintf("/users/%s/events", username), params)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse the response
+	var events []map[string]interface{}
+	if err := json.Unmarshal(responseBody, &events); err != nil {
+		return nil, fmt.Errorf("failed to parse events data: %w", err)
+	}
+	
+	// Count different event types to understand contribution patterns
+	eventCounts := make(map[string]int)
+	for _, event := range events {
+		eventType, ok := event["type"].(string)
+		if ok {
+			eventCounts[eventType]++
+		}
+	}
+	
+	// Calculate monthly activity (approximate using available data)
+	monthlyActivity := calculateMonthlyActivity(events)
+	
+	// Build the contribution data structure
+	contributionData := map[string]interface{}{
+		"total_events":     len(events),
+		"event_counts":     eventCounts,
+		"monthly_activity": monthlyActivity,
+	}
+	
+	return contributionData, nil
+}
+
+// GetUserLanguages aggregates language usage across all user repositories
+func (s *GitHubService) GetUserLanguages(username string) (map[string]interface{}, error) {
+	// Get all repositories first
+	repositories, err := s.GetUserRepositories(username)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Aggregate language data across repositories
+	languageTotals := make(map[string]int)
+	languageRepos := make(map[string][]string)
+	
+	for _, repo := range repositories {
+		repoName, ok := repo["name"].(string)
+		if !ok {
+			continue
+		}
+		
+		languages, ok := repo["languages"].(map[string]interface{})
+		if !ok {
+			// If languages weren't already fetched, get them now
+			var err error
+			languages, err = s.GetRepositoryLanguages(username, repoName)
+			if err != nil {
+				continue
+			}
+		}
+		
+		// Add up bytes for each language
+		for lang, bytes := range languages {
+			bytesInt, ok := bytes.(float64)
+			if !ok {
+				continue
+			}
+			
+			languageTotals[lang] += int(bytesInt)
+			
+			// Track which repos use this language
+			if _, exists := languageRepos[lang]; !exists {
+				languageRepos[lang] = make([]string, 0)
+			}
+			languageRepos[lang] = append(languageRepos[lang], repoName)
+		}
+	}
+	
+	// Calculate percentages and create the final structure
+	totalBytes := 0
+	for _, bytes := range languageTotals {
+		totalBytes += bytes
+	}
+	
+	languagePercentages := make(map[string]float64)
+	for lang, bytes := range languageTotals {
+		if totalBytes > 0 {
+			languagePercentages[lang] = float64(bytes) / float64(totalBytes) * 100
+		} else {
+			languagePercentages[lang] = 0
+		}
+	}
+	
+	// Build the language data structure
+	languageData := map[string]interface{}{
+		"totals":      languageTotals,
+		"percentages": languagePercentages,
+		"repos":       languageRepos,
+	}
+	
+	return languageData, nil
+}
+
+// GetRepositoryLanguages fetches language breakdown for a specific repository
+func (s *GitHubService) GetRepositoryLanguages(owner, repo string) (map[string]interface{}, error) {
+	// Fetch languages from GitHub API
+	responseBody, err := s.makeRequest("GET", fmt.Sprintf("/repos/%s/%s/languages", owner, repo), nil)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse the response
+	var languages map[string]interface{}
+	if err := json.Unmarshal(responseBody, &languages); err != nil {
+		return nil, fmt.Errorf("failed to parse language data: %w", err)
+	}
+	
+	return languages, nil
+}
+
+// GetRepositoryCommitStats fetches commit statistics for a repository
+func (s *GitHubService) GetRepositoryCommitStats(owner, repo string) (map[string]interface{}, error) {
+	// Fetch commit activity
+	responseBody, err := s.makeRequest("GET", fmt.Sprintf("/repos/%s/%s/stats/commit_activity", owner, repo), nil)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse the response
+	var commitActivity []map[string]interface{}
+	if err := json.Unmarshal(responseBody, &commitActivity); err != nil {
+		return nil, fmt.Errorf("failed to parse commit activity: %w", err)
+	}
+	
+	// Calculate some statistics from the commit activity
+	totalCommits := 0
+	weeklyAverage := 0.0
+	
+	if len(commitActivity) > 0 {
+		for _, week := range commitActivity {
+			total, ok := week["total"].(float64)
+			if ok {
+				totalCommits += int(total)
+			}
+		}
+		
+		if len(commitActivity) > 0 {
+			weeklyAverage = float64(totalCommits) / float64(len(commitActivity))
+		}
+	}
+	
+	// Build the commit stats structure
+	commitStats := map[string]interface{}{
+		"total_commits":   totalCommits,
+		"weekly_average":  weeklyAverage,
+		"commit_activity": commitActivity,
+	}
+	
+	return commitStats, nil
+}
+
+// Helper functions
+
+// countForks counts the number of forked repositories
+func countForks(repositories []map[string]interface{}) int {
+	count := 0
+	for _, repo := range repositories {
+		isFork, ok := repo["fork"].(bool)
+		if ok && isFork {
+			count++
+		}
+	}
+	return count
+}
+
+// calculateMonthlyActivity generates monthly activity counts from events
+func calculateMonthlyActivity(events []map[string]interface{}) []int {
+	// Initialize array for last 12 months (0 = current month)
+	monthlyActivity := make([]int, 12)
+	
+	currentTime := time.Now()
+	
+	for _, event := range events {
+		createdAt, ok := event["created_at"].(string)
+		if !ok {
+			continue
+		}
+		
+		// Parse the event timestamp
+		eventTime, err := time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			continue
+		}
+		
+		// Calculate months ago
+		monthsAgo := int(currentTime.Sub(eventTime).Hours() / 24 / 30)
+		
+		// Only count if within the last 12 months
+		if monthsAgo >= 0 && monthsAgo < 12 {
+			monthlyActivity[monthsAgo]++
+		}
+	}
+	
+	return monthlyActivity
+}

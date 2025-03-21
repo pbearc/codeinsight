@@ -10,7 +10,7 @@ function Home() {
         <h1 className="display-4 mb-3">Welcome to CodeInsight</h1>
         <p className="lead mb-4">
           Your intelligent assistant for understanding code, exploring
-          libraries, and generating documentation.
+          libraries, generating documentation, and analyzing developers.
         </p>
         <div className="d-flex justify-content-center gap-3">
           <Button as={Link} to="/code-analyzer" variant="primary" size="lg">
@@ -18,11 +18,11 @@ function Home() {
           </Button>
           <Button
             as={Link}
-            to="/library-explorer"
+            to="/developer-analysis"
             variant="outline-secondary"
             size="lg"
           >
-            Explore Libraries
+            Analyze Developers
           </Button>
         </div>
       </div>
@@ -114,7 +114,7 @@ function Home() {
 
         {/* New Row for Additional Features */}
         <Row className="g-4 mt-2">
-          <Col md={6} lg={6}>
+          <Col md={6} lg={4}>
             <Card className="h-100 shadow-sm">
               <Card.Body>
                 <h3 className="h5 mb-3">README Generator</h3>
@@ -134,7 +134,7 @@ function Home() {
             </Card>
           </Col>
 
-          <Col md={6} lg={6}>
+          <Col md={6} lg={4}>
             <Card className="h-100 shadow-sm">
               <Card.Body>
                 <h3 className="h5 mb-3">Project Visualizer</h3>
@@ -150,6 +150,39 @@ function Home() {
                 >
                   Try it
                 </Button>
+              </Card.Body>
+            </Card>
+          </Col>
+
+          {/* New Developer Analysis Feature Card */}
+          <Col md={6} lg={4}>
+            <Card className="h-100 shadow-sm border-primary">
+              <Card.Body>
+                <span className="badge bg-primary mb-2">New</span>
+                <h3 className="h5 mb-3">Developer Analysis</h3>
+                <p className="card-text mb-3">
+                  Analyze GitHub developer profiles to understand their
+                  technical skills, project complexity, and evaluate potential
+                  team members.
+                </p>
+                <div className="d-flex gap-2">
+                  <Button
+                    as={Link}
+                    to="/developer-analysis"
+                    variant="outline-primary"
+                    size="sm"
+                  >
+                    Analyze Dev
+                  </Button>
+                  <Button
+                    as={Link}
+                    to="/developer-comparison"
+                    variant="outline-primary"
+                    size="sm"
+                  >
+                    Compare Devs
+                  </Button>
+                </div>
               </Card.Body>
             </Card>
           </Col>
@@ -170,8 +203,8 @@ function Home() {
               </div>
               <h4>Input Your Code or Query</h4>
               <p>
-                Enter a code snippet, GitHub URL, or library name that you want
-                to analyze.
+                Enter a code snippet, GitHub URL, or developer username that you
+                want to analyze.
               </p>
             </div>
           </Col>
@@ -187,7 +220,7 @@ function Home() {
               <h4>Search GitHub</h4>
               <p>
                 Our system searches through GitHub repositories to find relevant
-                code and examples.
+                code, examples, and developer activity.
               </p>
             </div>
           </Col>
@@ -202,8 +235,8 @@ function Home() {
               </div>
               <h4>AI Analysis</h4>
               <p>
-                Our LLM analyzes the code and generates insights, explanations,
-                and documentation.
+                Our LLM analyzes the data and generates insights, explanations,
+                documentation, and technical profiles.
               </p>
             </div>
           </Col>
@@ -218,8 +251,8 @@ function Home() {
               </div>
               <h4>View Results</h4>
               <p>
-                Review the generated insights, examples, and documentation to
-                better understand the code.
+                Review the generated insights, examples, documentation, or
+                developer profiles to make better decisions.
               </p>
             </div>
           </Col>

@@ -33,10 +33,16 @@ function ProjectVisualizer() {
     process.env.REACT_APP_API_BASE_URL || "http://localhost:5000/api";
 
   useEffect(() => {
-    // Initialize mermaid
+    // Initialize mermaid with specific settings
     mermaid.initialize({
-      startOnLoad: true,
+      startOnLoad: false,
       theme: "default",
+      securityLevel: "loose", // Needed for proper styling
+      flowchart: {
+        htmlLabels: true,
+        useMaxWidth: true,
+        curve: "basis", // Smoother curves
+      },
     });
   }, []);
 
@@ -44,9 +50,30 @@ function ProjectVisualizer() {
     // Render mermaid diagram when code changes
     if (diagramCode && mermaidRef.current) {
       try {
-        mermaid.contentLoaded();
+        // Clear previous diagram
+        mermaidRef.current.innerHTML = "";
+
+        // Create a new mermaid div
+        const mermaidDiv = document.createElement("div");
+        mermaidDiv.className = "mermaid";
+        mermaidDiv.textContent = diagramCode;
+
+        // Add to the container
+        mermaidRef.current.appendChild(mermaidDiv);
+
+        // Render the diagram
+        mermaid.init(undefined, mermaidDiv);
       } catch (e) {
         console.error("Mermaid rendering error:", e);
+
+        // Add error message to the container
+        if (mermaidRef.current) {
+          mermaidRef.current.innerHTML = `
+            <div class="alert alert-danger">
+              Error rendering diagram: ${e.message || "Unknown error"}
+            </div>
+          `;
+        }
       }
     }
   }, [diagramCode]);
@@ -87,23 +114,15 @@ function ProjectVisualizer() {
         requestData
       );
 
-      // When receiving diagramCode from the API
       if (response.data && response.data.success) {
-        // Clean the diagram code by removing triple backticks and "mermaid" declaration
-        let cleanedCode = response.data.data.diagramCode
+        // Clean up any markdown formatting that might be in the response
+        const cleanedCode = response.data.data.diagramCode
           .replace(/```mermaid\s*/g, "") // Remove opening ```mermaid
           .replace(/```\s*$/g, "") // Remove closing ```
           .trim();
 
         setDiagramCode(cleanedCode);
         setDiagramType(response.data.data.type || "flowchart");
-
-        // Clear and re-render the diagram
-        if (mermaidRef.current) {
-          mermaidRef.current.innerHTML = "";
-          mermaidRef.current.innerHTML = `<div class="mermaid">${cleanedCode}</div>`;
-          mermaid.contentLoaded();
-        }
       } else {
         throw new Error(
           response.data.error || "Failed to generate project visualization"
@@ -116,6 +135,37 @@ function ProjectVisualizer() {
       console.error("Visualization error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to save SVG
+  const saveSvgAsPng = () => {
+    if (mermaidRef.current) {
+      // Find the SVG element
+      const svg = mermaidRef.current.querySelector("svg");
+      if (svg) {
+        // Create a new image
+        const image = new Image();
+        // Get SVG data
+        const svgData = new XMLSerializer().serializeToString(svg);
+        // Create a blob from the SVG data
+        const svgBlob = new Blob([svgData], {
+          type: "image/svg+xml;charset=utf-8",
+        });
+        // Create URL object
+        const url = URL.createObjectURL(svgBlob);
+
+        // Create a download link and trigger click
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "project-structure.svg";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up
+        URL.revokeObjectURL(url);
+      }
     }
   };
 
@@ -208,25 +258,35 @@ function ProjectVisualizer() {
               <Card.Header className="d-flex justify-content-between align-items-center">
                 <h4 className="mb-0">Project Visualization</h4>
                 {diagramCode && (
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => {
-                      const blob = new Blob([diagramCode], {
-                        type: "text/plain",
-                      });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = "project-diagram.mmd";
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }}
-                  >
-                    Download Diagram Code
-                  </Button>
+                  <div>
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      className="me-2"
+                      onClick={saveSvgAsPng}
+                    >
+                      Save as SVG
+                    </Button>
+                    <Button
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={() => {
+                        const blob = new Blob([diagramCode], {
+                          type: "text/plain",
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "project-diagram.mmd";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}
+                    >
+                      Download Diagram Code
+                    </Button>
+                  </div>
                 )}
               </Card.Header>
               <Card.Body>
@@ -249,9 +309,11 @@ function ProjectVisualizer() {
                           className="diagram-container border rounded p-3 bg-light overflow-auto"
                           style={{ maxHeight: "600px" }}
                         >
-                          <div ref={mermaidRef} className="text-center">
-                            <div className="mermaid">{diagramCode}</div>
-                          </div>
+                          <div
+                            ref={mermaidRef}
+                            className="text-center mermaid-container"
+                            style={{ minHeight: "300px" }}
+                          ></div>
                         </div>
                       </Tab.Pane>
                       <Tab.Pane eventKey="code">

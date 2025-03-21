@@ -14,6 +14,8 @@ import DocumentationGenerator from "./pages/DocumentationGenerator";
 import ImplementationFinder from "./pages/ImplementationFinder";
 import ReadmeGenerator from "./pages/ReadmeGenerator";
 import ProjectVisualizer from "./pages/ProjectVisualizer";
+import DeveloperAnalysis from "./pages/DeveloperAnalysis";
+import DeveloperComparison from "./pages/DeveloperComparison";
 
 function App() {
   return (
@@ -35,6 +37,11 @@ function App() {
             />
             <Route path="/readme-generator" element={<ReadmeGenerator />} />
             <Route path="/project-visualizer" element={<ProjectVisualizer />} />
+            <Route path="/developer-analysis" element={<DeveloperAnalysis />} />
+            <Route
+              path="/developer-comparison"
+              element={<DeveloperComparison />}
+            />
           </Routes>
         </main>
         <Footer />

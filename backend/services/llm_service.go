@@ -19,128 +19,6 @@ type LLMService struct {
 	mockMode bool
 }
 
-// Prompt templates for different analysis tasks
-var promptTemplates = map[string]string{
-	"analyze": `
-Analyze the following code written in {language}:
-
-{language}
-{code}
-
-Provide a comprehensive analysis including:
-
-Overview of what the code does
-Design patterns used (if any)
-Potential bugs or issues
-Performance considerations
-Suggestions for improvement
-
-Your analysis should be detailed but concise, focusing on the most important aspects.
-`,
-	"documentation": `
-Generate clear documentation for the following code written in {language} as a Markdown document:
-{code}
-
-Include the following sections:
-
-Purpose and functionality overview
-Parameters and return values (if applicable)
-Usage examples
-Key components and their interactions
-Dependencies and requirements
-
-The documentation should be suitable for developers who may not be familiar with this code.
-`,
-	"inline_documentation": `
-Generate inline documentation comments for the following {language} code. 
-Add detailed comments before functions, classes, and complex code blocks. 
-For each function or method, document:
-- Purpose
-- Parameters
-- Return values
-- Notable behavior or edge cases
-
-Use the appropriate comment style for {language}:
-- For JavaScript/TypeScript/Java: Use /** ... */ for functions/methods and // for inline comments
-- For Python: Use """ ... """ docstrings for functions/methods and # for inline comments
-- For Go: Use // comments following Go's documentation conventions
-- For other languages: Follow standard conventions
-
-Here's the code:
-{code}
-
-Return the complete code with your added documentation comments.
-`,
-	"explain": `
-Explain the following code written in {language} in simple terms:
-{code}
-
-Focus on:
-
-What the code does in plain English
-How it works, using simple explanations
-The purpose of each major component
-How the parts work together
-
-Your explanation should be accessible to someone with basic programming knowledge.
-`,
-	"patternIdentification": `
-Identify design patterns in the following code written in {language}:
-
-{code}
-
-For each pattern you identify:
-
-Name the pattern
-Explain how it's implemented in this code
-Describe the benefits this pattern provides
-Suggest any alternative patterns that could also work
-
-Be specific and reference the actual code implementation.
-`,
-	"readme_generator": `
-Generate a comprehensive README.md file for the following repository. Here's the repository structure and file summaries:
-
-{repo_structure}
-
-Based on this information:
-
-1. Create a complete README.md that includes:
-   - Project title and description
-   - Installation instructions
-   - Usage examples
-   - Features overview
-   - API documentation (if applicable)
-   - Contributing guidelines
-   - License information
-
-2. The README should be professional and well-structured with proper Markdown formatting.
-3. Include badges if applicable (e.g., build status, license).
-4. If you see code examples in the file summaries, include them in the usage section.
-
-Return only the README.md content in proper Markdown format.
-`,
-	"project_visualization": `
-Based on the following repository structure:
-
-{repo_structure}
-
-Generate a hierarchical Mermaid flowchart diagram (TD direction - top down) that visualizes the complete folder structure. Requirements:
-
-1. Represent the repository as a hierarchical tree structure with proper parent-child relationships
-2. Show ALL directories and their subdirectories
-3. Include files within each directory
-4. Use different styles for files vs. directories
-5. Use the graph TD layout (top-down diagram)
-
-IMPORTANT: 
-- Do NOT include markdown code block syntax (three backtick). Return ONLY the raw Mermaid diagram code.
-- Make sure to represent the exact hierarchical structure with proper nesting of subdirectories.
-- Use descriptive node IDs to avoid collisions when directories or files have the same name.
-- Include ALL directories and their relationships.
-`,
-}
-
 // NewLLMService creates a new LLM service instance
 func NewLLMService() *LLMService {
 	apiKey := os.Getenv("GEMINI_API_KEY")
@@ -257,6 +135,10 @@ func (s *LLMService) getMockResponse(prompt string) string {
 		return "graph TD\n  A[Main Module] --> B[Component 1]\n  A --> C[Component 2]\n  B --> D[Utility 1]\n  C --> E[Utility 2]"
 	} else if strings.Contains(prompt, "documentation") {
 		return "# Mock Documentation\n\n## Overview\nThis is a mock documentation response for testing.\n\n## Functions\n- `function1`: Does something interesting\n- `function2`: Does something else"
+	}  else if strings.Contains(prompt, "developer profile analysis") || strings.Contains(prompt, "GitHub user profile") {
+		return `{"username":"mockuser","executiveSummary":"This is a mock developer profile analysis for testing purposes.","languageAnalysis":[{"name":"JavaScript","percentage":65.5,"lines":12500,"proficiency":"Expert","experience":4.2},{"name":"Python","percentage":25.3,"lines":4800,"proficiency":"Intermediate","experience":2.1}],"projectAnalysis":[{"name":"mock-project-1","size":12500,"stars":42,"forks":15,"complexityRank":"medium","score":7.2}],"contributionPatterns":{"totalCommits":512,"averageCommitsMonth":42.7,"consistencyScore":85.2,"prAcceptanceRate":92.5,"reviewParticipation":75.0,"monthlyActivity":[45,40,38,42,45,50,55,48,42,38,40,45]},"learningVelocity":{"adaptabilityScore":82.5,"technologyAdoption":{"TypeScript":"1 year ago","React":"2 years ago"},"growthTrajectory":"accelerating","complexityTrend":[{"month":1,"score":5.2},{"month":12,"score":7.5}]},"specializations":{"primaryDomains":["Frontend Development","Web Applications"],"secondaryDomains":["API Design","DevOps"],"frameworkExpertise":{"React":85.0,"Node.js":75.0},"topicFocus":{"UI/UX":65.0,"Performance":72.0}},"skillAssessment":{"codeQuality":80.0,"documentation":65.0,"testing":70.0,"performance":85.0,"security":60.0,"collaboration":90.0},"technicalStrengths":["JavaScript Ecosystem","Frontend Architecture","Performance Optimization"],"growthAreas":["Documentation Practices","Security Best Practices"]}`
+	} else if strings.Contains(prompt, "developer comparison") || strings.Contains(prompt, "Compare the following GitHub developer profiles") {
+		return `{"developers":["mockuser1","mockuser2"],"comparativeSummary":"This is a mock developer comparison for testing purposes.","skillComparison":{"JavaScript":[85.0,65.0],"Python":[45.0,90.0],"DevOps":[35.0,80.0]},"projectScale":{"mockuser1":["small","medium","medium"],"mockuser2":["medium","large","enterprise"]},"collaborationStyle":{"mockuser1":"Regular small contributions with detailed documentation","mockuser2":"Large feature implementations with minimal documentation"},"learningTrajectory":{"mockuser1":75.0,"mockuser2":85.0},"teamFitAnalysis":"These developers would complement each other well with their different skill sets.","complementarity":{"Frontend":["mockuser1"],"Backend":["mockuser2"],"Testing":["mockuser1","mockuser2"]}}`
 	} else {
 		return "This is a mock response from the LLM service. You're seeing this because either no API key is configured or mock mode is enabled. In a real scenario, this would be a detailed response based on your prompt."
 	}
@@ -463,13 +345,11 @@ func (s *LLMService) CompareImplementations(implementations []map[string]interfa
 Compare the following implementations of the same functionality:
 %s
 Provide a comprehensive comparison including:
-
 Differences in approach
 Performance implications
 Code quality and readability
 Best practices used
 Strengths and weaknesses of each approach
-
 Conclude with recommendations on which implementation is best for different scenarios.
 	`, strings.Join(implementationsText, "\n\n"))
 
@@ -483,4 +363,259 @@ Conclude with recommendations on which implementation is best for different scen
 		Comparison:          response,
 		ImplementationCount: len(implementations),
 	}, nil
+}
+
+// AnalyzeDeveloper analyzes a GitHub developer profile
+func (s *LLMService) AnalyzeDeveloper(username string, repoData string, contributionData string, languageData string) (string, error) {
+	// Format the prompt using the developer analysis template
+	prompt := s.FormatPrompt(promptTemplates["developer_analysis"], map[string]string{
+		"username":          username,
+		"repo_data":         repoData,
+		"contribution_data": contributionData,
+		"language_data":     languageData,
+	})
+
+	// Call the LLM
+	response, err := s.CallGeminiLLM(prompt)
+	if err != nil {
+		return "", fmt.Errorf("Developer Analysis Error: %v", err)
+	}
+
+	return response, nil
+}
+
+// CompareDevelopers compares multiple GitHub developer profiles
+func (s *LLMService) CompareDevelopers(developerProfiles string, focus string) (string, error) {
+	// Format the prompt using the developer comparison template
+	prompt := s.FormatPrompt(promptTemplates["developer_comparison"], map[string]string{
+		"developer_profiles": developerProfiles,
+		"focus":              focus,
+	})
+
+	// Call the LLM
+	response, err := s.CallGeminiLLM(prompt)
+	if err != nil {
+		return "", fmt.Errorf("Developer Comparison Error: %v", err)
+	}
+
+	return response, nil
+}
+
+// Prompt templates for different analysis tasks
+var promptTemplates = map[string]string{
+	"analyze": `
+Analyze the following code written in {language}:
+{language}
+{code}
+Provide a comprehensive analysis including:
+Overview of what the code does
+Design patterns used (if any)
+Potential bugs or issues
+Performance considerations
+Suggestions for improvement
+Your analysis should be detailed but concise, focusing on the most important aspects.
+`,
+	"documentation": `
+Generate clear documentation for the following code written in {language} as a Markdown document:
+{code}
+Include the following sections:
+Purpose and functionality overview
+Parameters and return values (if applicable)
+Usage examples
+Key components and their interactions
+Dependencies and requirements
+The documentation should be suitable for developers who may not be familiar with this code.
+`,
+	"inline_documentation": `
+Generate inline documentation comments for the following {language} code. 
+Add detailed comments before functions, classes, and complex code blocks. 
+For each function or method, document:
+- Purpose
+- Parameters
+- Return values
+- Notable behavior or edge cases
+Use the appropriate comment style for {language}:
+- For JavaScript/TypeScript/Java: Use /** ... */ for functions/methods and // for inline comments
+- For Python: Use """ ... """ docstrings for functions/methods and # for inline comments
+- For Go: Use // comments following Go's documentation conventions
+- For other languages: Follow standard conventions
+Here's the code:
+{code}
+Return the complete code with your added documentation comments.
+`,
+	"explain": `
+Explain the following code written in {language} in simple terms:
+{code}
+Focus on:
+What the code does in plain English
+How it works, using simple explanations
+The purpose of each major component
+How the parts work together
+Your explanation should be accessible to someone with basic programming knowledge.
+`,
+	"patternIdentification": `
+Identify design patterns in the following code written in {language}:
+{code}
+For each pattern you identify:
+Name the pattern
+Explain how it's implemented in this code
+Describe the benefits this pattern provides
+Suggest any alternative patterns that could also work
+Be specific and reference the actual code implementation.
+`,
+	"readme_generator": `
+Generate a comprehensive README.md file for the following repository. Here's the repository structure and file summaries:
+{repo_structure}
+Based on this information:
+1. Create a complete README.md that includes:
+   - Project title and description
+   - Installation instructions
+   - Usage examples
+   - Features overview
+   - API documentation (if applicable)
+   - Contributing guidelines
+   - License information
+2. The README should be professional and well-structured with proper Markdown formatting.
+3. Include badges if applicable (e.g., build status, license).
+4. If you see code examples in the file summaries, include them in the usage section.
+Return only the README.md content in proper Markdown format.
+`,
+	"project_visualization": `
+Based on the following repository structure:
+{repo_structure}
+Generate a Mermaid flowchart diagram that accurately represents the file hierarchy in a clean, organized manner (LR direction - left to right). The diagram should adhere to the following requirements:
+1. **Graph Layout**: Use 'graph LR' for a left-to-right flow. You should branch out to the right for each level of the hierarchy. For each file under a directory, connect it to the directory node with a horizontal line. If two parent directories have a common child, that are not the common child, they are meant to be differnet files/folder, connect them to their respective parent directories. Meaning, duplicate file name are allowed, don't messed up the folder/files directory.
+2. **Hierarchy**: Maintain proper parent-child relationships, ensuring each folder is connected only to its immediate parent, with no misplaced or disconnected nodes. Place level 0 folders at line horizontal line, level 1 folders or files at the next line, and so on. Make it easy for reader to identify the level of the folder/file.
+3. **Node Shapes**:
+- Use **rounded rectangles** for directories: 'folderName([folderName])'
+- Use **rectangles** for files: 'fileName[fileName]'.
+4. **Styling**:
+- Apply visual distinction using these classes:
+- Directories: 'classDef directory fill:#f9f,stroke:#333,stroke-width:1px;'
+- Files: 'classDef file fill:#fff,stroke:#333,stroke-width:1px;'
+- Ensure all directory nodes are styled with the 'directory' class and all file nodes with the 'file' class.
+5. **Neatness**:
+- Arrange nodes neatly with minimal crossing lines.
+- Add suitable spacing between nodes to enhance readability.
+6. **Output Format**:
+- If files/folders have the same name, add a number to the end of the name (e.g., 'src', 'src1', 'src2', etc.).
+- Do NOT include markdown code block syntax (three backticks).
+- Return ONLY the raw Mermaid diagram code.
+7. **Node Labels**:
+- Display each file/folder using only its name (e.g., 'src', 'index.html', etc.), not the full path.
+8. **Indentation**:
+- Use proper indentation in the Mermaid code for better maintainability.
+9. **Lines**:
+- Arrange the lines neatly, use the way that can take up the least space.
+`,
+	
+	/* New templates for developer analysis */
+	"developer_analysis": `
+Analyze the following GitHub user profile as a technical developer assessment:
+
+Username: {username}
+
+## Repository Data
+{repo_data}
+
+## Contribution Data
+{contribution_data}
+
+## Language Data
+{language_data}
+
+Provide a comprehensive developer profile analysis including:
+
+1. Executive summary of the developer's technical capabilities (2-3 sentences)
+2. Programming language proficiency analysis with estimated skill levels and years of experience
+3. Project complexity assessment categorizing projects as toy/learning, small, medium, large, or enterprise-level
+4. Contribution patterns and collaboration style assessment
+5. Learning velocity and technology adoption timeline
+6. Technical specialization areas and domain expertise identification
+7. Technical skill assessment across: code quality, documentation, testing, performance, security, collaboration
+8. Key technical strengths (top 3-5)
+9. Areas for potential growth (top 3-5)
+
+Return the analysis as a structured JSON with the following format exactly, with no extra text:
+{
+  "username": string,
+  "executiveSummary": string,
+  "languageAnalysis": [
+    {
+      "name": string,
+      "percentage": float,
+      "lines": int,
+      "proficiency": string,
+      "experience": float
+    }
+  ],
+  "projectAnalysis": [
+    {
+      "name": string,
+      "size": int,
+      "stars": int,
+      "forks": int,
+      "complexityRank": string,
+      "score": float
+    }
+  ],
+  "contributionPatterns": {
+    "totalCommits": int,
+    "averageCommitsMonth": float,
+    "consistencyScore": float,
+    "prAcceptanceRate": float,
+    "reviewParticipation": float,
+    "monthlyActivity": [int]
+  },
+  "learningVelocity": {
+    "adaptabilityScore": float,
+    "technologyAdoption": {string: string},
+    "growthTrajectory": string,
+    "complexityTrend": [{string: float}]
+  },
+  "specializations": {
+    "primaryDomains": [string],
+    "secondaryDomains": [string],
+    "frameworkExpertise": {string: float},
+    "topicFocus": {string: float}
+  },
+  "skillAssessment": {
+    "codeQuality": float,
+    "documentation": float,
+    "testing": float,
+    "performance": float,
+    "security": float,
+    "collaboration": float
+  },
+  "technicalStrengths": [string],
+  "growthAreas": [string]
+}
+`,
+	"developer_comparison": `
+Compare the following GitHub developer profiles:
+
+{developer_profiles}
+
+Provide a comprehensive comparison including:
+
+1. Comparative summary of the developers' technical capabilities
+2. Skill comparison across key technical areas
+3. Project scale and complexity comparison
+4. Collaboration style differences
+5. Learning trajectory and adaptability comparison
+6. Team fit analysis - how these developers would work together
+7. Complementary skill sets analysis
+
+Return the comparison as a structured JSON with the following format exactly, with no extra text:
+{
+  "developers": [string],
+  "comparativeSummary": string,
+  "skillComparison": {string: [float]},
+  "projectScale": {string: [string]},
+  "collaborationStyle": {string: string},
+  "learningTrajectory": {string: float},
+  "teamFitAnalysis": string,
+  "complementarity": {string: [string]}
+}
+`,
 }

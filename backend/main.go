@@ -58,6 +58,9 @@ func main() {
 	routes.RegisterImplementationRoutes(api.Group("/implementations"))
 	routes.RegisterRepoRoutes(api.Group("/repo"))
 	
+	// Register new developer analysis routes
+	routes.RegisterDeveloperRoutes(api.Group("/developers"))
+	
 	// Health check endpoint
 	router.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
